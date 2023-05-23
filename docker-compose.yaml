@@ -1,0 +1,52 @@
+version: "3"
+
+services:
+  app:
+    build:
+      context: ./node
+      dockerfile: Dockerfile.prod
+    container_name: app
+    entrypoint: sh -c '/usr/bin/wait-for -t 60 db:3306 -- chmod +x ./start.sh && ./start.sh'
+    tty: true
+    networks:
+      - node-network
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile.prod
+    container_name: nginx
+    entrypoint: sh -c '/usr/bin/wait-for -t 60 app:3000 -- /user/bin/start.sh'
+    tty: true
+    ports:
+      - "8080:80"
+    networks:
+      - node-network
+    depends_on:
+      - app
+
+  db:
+    image: mysql:5.7
+    platform: linux/amd64
+    command: --innodb-use-native-aio=0
+    container_name: db
+    restart: always
+    tty: true
+    expose:
+      - 3306
+    volumes:
+      - ./mysql/db:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=nodedb
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_ROOT_USER=root
+    networks:
+      - node-network
+
+networks:
+  node-network:
+    driver: bridge
